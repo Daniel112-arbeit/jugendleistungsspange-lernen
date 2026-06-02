@@ -6,8 +6,13 @@
 
   --border: #0b0b0b;
 
-  --primary: #00b300; /* signal green */
-  --primaryText: #001a00;
+  /* Feuerwehr-Akzente */
+  --fireRed: #e11d48;
+  --fireYellow: #ffe600;
+
+  /* Primary = Feuerrot */
+  --primary: var(--fireRed);
+  --primaryText: #ffffff;
 
   --good: #1aa64a;
   --bad: #e11d48;
@@ -143,6 +148,38 @@ h3 {
   padding: 14px;
   cursor: pointer;
   box-shadow: 6px 6px 0 var(--border);
+  position: relative;
+}
+
+/* Feuerwehr: ausgewählte Lerngruppe (sehr sichtbar) */
+.groupCard--selected {
+  background: var(--fireYellow);
+  border-color: var(--fireRed);
+  box-shadow: 10px 10px 0 var(--fireRed);
+  outline: 4px solid var(--fireRed);
+  outline-offset: -3px;
+}
+
+.groupCard--selected .groupCard__meta {
+  color: #000;
+}
+
+.groupCard--selected::after {
+  content: "✓";
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+
+  background: var(--fireRed);
+  color: #fff;
+
+  border: 3px solid var(--border);
+  box-shadow: 4px 4px 0 var(--border);
+  font-weight: 1000;
 }
 
 .groupCard:focus {

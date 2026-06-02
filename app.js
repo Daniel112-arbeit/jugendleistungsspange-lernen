@@ -137,8 +137,12 @@
 
       checkbox.addEventListener("change", () => {
         const checked = checkbox.checked;
+
         if (checked) state.selectedGroupIds.add(group.id);
         else state.selectedGroupIds.delete(group.id);
+
+        // visuelles Feuerwehr-Highlight
+        card.classList.toggle("groupCard--selected", checked);
 
         const selectedCount = state.selectedGroupIds.size;
         els.btnStart.disabled = selectedCount === 0;
