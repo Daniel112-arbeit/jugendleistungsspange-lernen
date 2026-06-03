@@ -66,20 +66,36 @@
       .replace(/\s+/g, " ");
   }
 
-  function isAutoCorrect(user, solution) {
+  // Nur grobe Einschätzung (keine komplette Kontrolle).
+  // Rückgabe: "good" | "partial" | "bad" | null (wenn gar nichts eingegeben)
+  function evaluateAutoCorrect(user, solution) {
     const u = normalize(user);
     const a = normalize(solution);
 
-    if (!u) return false;
+    if (!u) return null;
 
-    // Strengster Fall: exakt (nach Normalisierung)
-    if (u === a) return true;
+    // 1) Strengster Fall: exakt (nach Normalisierung)
+    if (u === a) return "good";
 
-    // Hilfsfall: Inhalt enthält sich (hilft bei Zeilenumbrüchen/Listen)
-    if (a && u.length >= 6 && u.includes(a.slice(0, Math.min(a.length, 60)))) return true;
-    if (u && a.length >= 6 && a.includes(u.slice(0, Math.min(u.length, 60)))) return true;
+    // 2) Wort-Overlap als grobe Heuristik
+    const uWords = u.split(" ").filter((w) => w.length >= 3);
+    const aWords = a.split(" ").filter((w) => w.length >= 3);
 
-    return false;
+    if (uWords.length === 0 || aWords.length === 0) return "bad";
+
+    const aSet = new Set(aWords);
+    let matchCount = 0;
+    for (const w of uWords) {
+      if (aSet.has(w)) matchCount++;
+    }
+
+    const denom = Math.min(uWords.length, aWords.length) || 1;
+    const ratio = matchCount / denom;
+
+    // Schwellenwerte: bewusst niedrig, weil "nur grob" gewertet werden soll.
+    if (ratio >= 0.18) return "good";
+    if (ratio >= 0.06) return "partial";
+    return "bad";
   }
 
   function setStep(stepName) {
@@ -204,12 +220,15 @@
     els.yourAnswerBox.textContent = userAnswer.trim() ? userAnswer.trim() : "— (keine Eingabe)";
     els.solutionBox.textContent = q.solutionText.trim();
 
-    // Automatische Einschätzung (nur Hinweis, nicht die endgültige Bewertung)
+    // Automatische Einschätzung (nur grobe Orientierung, keine komplette Kontrolle)
     const auto = state.autoCorrectCache.get(q.questionId);
-    if (typeof auto === "boolean") {
-      els.revealMeta.textContent += auto
-        ? " • Automatisch: sieht richtig aus ✅"
-        : " • Automatisch: sieht eher falsch aus ⚠️";
+
+    if (auto === "good") {
+      els.revealMeta.textContent += " • Automatisch: Grundprinzip verstanden ✅";
+    } else if (auto === "partial") {
+      els.revealMeta.textContent += " • Automatisch: Grundprinzip teilweise verstanden ⚠️";
+    } else if (auto === "bad") {
+      els.revealMeta.textContent += " • Automatisch: Grundprinzip noch unklar ℹ️";
     }
 
     // Rating-Buttons zurücksetzen
@@ -348,7 +367,7 @@
     const userAnswer = els.answerInput.value || "";
     state.userAnswers.set(q.questionId, userAnswer);
 
-    const auto = isAutoCorrect(userAnswer, q.solutionText);
+    const auto = evaluateAutoCorrect(userAnswer, q.solutionText);
     state.autoCorrectCache.set(q.questionId, auto);
 
     setStep("reveal");
