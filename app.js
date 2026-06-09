@@ -55,48 +55,7 @@
 
     userAnswers: new Map(), // key = questionId => string
     ratings: new Map(), // key = questionId => "correct" | "wrong"
-    // autoCorrectCache: key = questionId => boolean
-    autoCorrectCache: new Map(),
   };
-
-  function normalize(s) {
-    return String(s || "")
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, " ");
-  }
-
-  // Nur grobe Einschätzung (keine komplette Kontrolle).
-  // Rückgabe: "good" | "partial" | "bad" | null (wenn gar nichts eingegeben)
-  function evaluateAutoCorrect(user, solution) {
-    const u = normalize(user);
-    const a = normalize(solution);
-
-    if (!u) return null;
-
-    // 1) Strengster Fall: exakt (nach Normalisierung)
-    if (u === a) return "good";
-
-    // 2) Wort-Overlap als grobe Heuristik
-    const uWords = u.split(" ").filter((w) => w.length >= 3);
-    const aWords = a.split(" ").filter((w) => w.length >= 3);
-
-    if (uWords.length === 0 || aWords.length === 0) return "bad";
-
-    const aSet = new Set(aWords);
-    let matchCount = 0;
-    for (const w of uWords) {
-      if (aSet.has(w)) matchCount++;
-    }
-
-    const denom = Math.min(uWords.length, aWords.length) || 1;
-    const ratio = matchCount / denom;
-
-    // Schwellenwerte: bewusst niedrig, weil "nur grob" gewertet werden soll.
-    if (ratio >= 0.18) return "good";
-    if (ratio >= 0.06) return "partial";
-    return "bad";
-  }
 
   function setStep(stepName) {
     const map = {
@@ -220,17 +179,6 @@
     els.yourAnswerBox.textContent = userAnswer.trim() ? userAnswer.trim() : "— (keine Eingabe)";
     els.solutionBox.textContent = q.solutionText.trim();
 
-    // Automatische Einschätzung (nur grobe Orientierung, keine komplette Kontrolle)
-    const auto = state.autoCorrectCache.get(q.questionId);
-
-    if (auto === "good") {
-      els.revealMeta.textContent += " • Automatisch: Grundprinzip verstanden ✅";
-    } else if (auto === "partial") {
-      els.revealMeta.textContent += " • Automatisch: Grundprinzip teilweise verstanden ⚠️";
-    } else if (auto === "bad") {
-      els.revealMeta.textContent += " • Automatisch: Grundprinzip noch unklar ℹ️";
-    }
-
     // Rating-Buttons zurücksetzen
     els.btnMarkCorrect.classList.remove("btn--active");
     els.btnMarkWrong.classList.remove("btn--active");
@@ -336,9 +284,6 @@
     setStep("summary");
   }
 
-  // Hinweis: Keine eigene HTML-Escaping-Utility nötig/erlaubt.
-  // Wir bauen die Ergebnisliste per DOM + textContent (keine innerHTML-Strings).
-
   function startQuiz() {
     if (state.selectedGroupIds.size === 0) return;
 
@@ -346,13 +291,6 @@
     state.index = 0;
     state.userAnswers.clear();
     state.ratings.clear();
-    state.autoCorrectCache.clear();
-
-    for (const q of state.quiz) {
-      const existing = state.userAnswers.get(q.questionId);
-      void existing;
-      // autoCorrect cache wird beim ersten Submit gesetzt
-    }
 
     setStep("quiz");
     updateQuestionUI();
@@ -366,9 +304,6 @@
 
     const userAnswer = els.answerInput.value || "";
     state.userAnswers.set(q.questionId, userAnswer);
-
-    const auto = evaluateAutoCorrect(userAnswer, q.solutionText);
-    state.autoCorrectCache.set(q.questionId, auto);
 
     setStep("reveal");
     setProgress(state.index, total);
@@ -415,7 +350,6 @@
     state.index = 0;
     state.userAnswers.clear();
     state.ratings.clear();
-    state.autoCorrectCache.clear();
 
     renderGroupGrid();
     // Auf Startstep
@@ -436,9 +370,14 @@
     });
 
     els.btnBack.addEventListener("click", () => {
-      // In der Quiz-Ansicht gibt es "Zurück" derzeit nur als Platzhalter;
-      // Wir lassen es einfach deaktiviert, falls kein sinnvoller Zustand.
-      // (Daher: no-op)
+      // Aktuelle Antwort speichern, dann zurück zur Gruppenauswahl
+      const q = currentQuestion();
+      if (q) {
+        state.userAnswers.set(q.questionId, els.answerInput.value || "");
+      }
+      state.quiz = [];
+      state.index = 0;
+      resetAll();
     });
 
     els.btnBackToEdit.addEventListener("click", () => {
